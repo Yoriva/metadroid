@@ -1,4 +1,4 @@
-**/build
+﻿**/build
 *.bat
 **/msvc/Debug*
 **/msvc/Release*
@@ -15,6 +15,4 @@
 **/msvc/ipch
 **/PublishPath*.txt
 **/*.log
-
-metamod/version/appversion.h
 publish
