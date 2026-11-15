@@ -1,4 +1,4 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
 const char *MPlugin::s_rPrintLoadTime[][4] = {
 	// SL_SIMPLE		// SL_SHOW	// SL_ALLOWED					// SL_NOW
@@ -545,7 +545,6 @@ bool MPlugin::unload(PLUG_LOADTIME now, PL_UNLOAD_REASON reason, bool& delayed)
 	clear();
 
 	META_LOG("dll: Unloaded plugin '%s' for reason '%s'", m_desc, str_reason(reason));
-	meta_rebuild_callbacks();
 	return true;
 }
 

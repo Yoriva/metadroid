@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <eiface.h>
 
@@ -30,7 +30,3 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS* pFunctionTable, int interfaceVersion
 C_DLLEXPORT int GetEntityAPI2(DLL_FUNCTIONS* pFunctionTable, int* interfaceVersion);
 C_DLLEXPORT int GetNewDLLFunctions(NEW_DLL_FUNCTIONS* pNewFunctionTable, int* interfaceVersion);
 
-#ifdef METAMOD_CORE
-void compile_gamedll_callbacks();
-void disable_clientcommand_fwd();
-#endif

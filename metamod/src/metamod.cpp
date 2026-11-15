@@ -1,4 +1,4 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
 cvar_t g_meta_version = { "metamod_version", APP_VERSION, FCVAR_SERVER, 0, nullptr };
 
@@ -148,8 +148,6 @@ void metamod_startup()
 	// until later.
 	if (g_config->m_debuglevel)
 		CVAR_SET_FLOAT("meta_debug", g_config->m_debuglevel);
-	if (!g_config->m_clientmeta)
-		disable_clientcommand_fwd();
 
 	// Prepare for registered commands from plugins.
 	g_regCmds = new MRegCmdList();
@@ -236,13 +234,6 @@ void metamod_startup()
 	if (meta_init_rehlds_api()) {
 		if (!g_meta_extdll.init(&g_engine.sys_module)) {
 			Sys_Error("Failure to init extension DLL; exiting...");
-		}
-	} else {
-		// activate linkent-replacement after give_engfuncs so that if game dll is
-		// plugin too and uses same method we get combined export table of plugin
-		// and game dll
-		if (!meta_init_linkent_replacement(&g_metamod_module, &g_GameDLL.sys_module)) {
-			Sys_Error("dll: Couldn't load linkent replacement for game DLL");
 		}
 	}
 
@@ -405,9 +396,6 @@ bool meta_load_gamedll()
 		return false;
 	}
 
-	// prepare meta_engfuncs
-	compile_engine_callbacks();
-
 	// Used to only pass our table of engine funcs if a loaded plugin
 	// wanted to catch one of the functions, but now that plugins are
 	// dynamically loadable at any time, we have to always pass our table,
@@ -441,112 +429,7 @@ bool meta_load_gamedll()
 	}
 
 	// prepare gamedll callbacks
-	compile_gamedll_callbacks();
-
 	META_LOG("Game DLL for '%s' loaded successfully", g_GameDLL.desc);
 	return true;
 }
 
-struct fixdata_t
-{
-	uint32* pret;
-	uint32 callback;
-};
-
-static void meta_collect_fix_data(uint32* const esp, std::vector<fixdata_t>& data)
-{
-	uint32* pret = esp;
-
-	// scan for retaddr
-	do pret--;
-	while (!g_jit.is_callback_retaddr(*pret));
-
-	char* raddr = (char *)*pret;
-	size_t args_count = 0;
-
-	if ((unsigned char)raddr[0] == 0x83 && (unsigned char)raddr[1] == 0xC4) // add esp, XX
-		args_count = raddr[2] / 4;
-
-	// 8B 0D 4E 61 BC 00        mov     ecx, ds:0BC614Eh
-	// 80 3D 4E 61 BC 00 05     cmp     byte ptr ds:0BC614Eh, 5
-	char pattern[] = "\x8B\x0D\x2A\x2A\x2A\x2A\x80\x3D";
-
-	// scan for callback addr
-	do raddr--;
-	while (!mem_compare(raddr, pattern, sizeof pattern - 1));
-
-	uint32 callback = *(uint32 *)(raddr + 2); // mov ecx, [callback]
-	data.push_back({pret, callback});
-
-	// 0F 29 44 24 1C               movaps  xmmword ptr [esp + 1Ch], xmm0
-	// 66 0F D6 4C 24 14            movq    mmword ptr [esp + 14h], xmm1
-
-	// 0F 29 84 24 36 05 00 00      movaps  xmmword ptr [esp + 536h], xmm0
-	// 66 0F D6 8C 24 36 05 00 00   movq    qword ptr [esp + 536h], xmm1
-	char pattern2[] = "\x66\x0F\xD6\x2A\x24";
-
-	// scan for mg_backup at stack
-	do raddr--;
-	while (!mem_compare(raddr, pattern2, sizeof pattern2 - 1));
-
-	uint32 mg_backup;
-	if (raddr[3] == 0x4C)
-		mg_backup = *(uint8 *)&raddr[sizeof pattern2 - 1];
-	else
-		mg_backup = *(uint32 *)&raddr[sizeof pattern2 - 1];
-
-	uint32* esp_save = *(uint32 **)(uint32(esp) + mg_backup + sizeof(int));
-	if (esp_save)
-		meta_collect_fix_data(esp_save, data);
-}
-
-static void meta_apply_fix_data(std::vector<fixdata_t>& data)
-{
-	for (auto& d : data) {
-		// 8B 0D 4E 61 BC 00    mov     ecx, ds:0BC614Eh
-		char pattern[6] = "\x8B\x0D";
-		*(uint32 *)(pattern + 2) = d.callback;
-
-		char* ptr = g_jit.find_callback_pattern(pattern, sizeof pattern);
-		if (!ptr) {
-			Sys_Error("Failed to fix callback retaddr.\n Bye bye...\n");
-		}
-
-		// FF D1        call    ecx
-		// 83 C4 20     add     esp, 20h ; optional
-		// 8B 13        mov     edx, [ebx]
-		do ptr++;
-		while (!mem_compare(ptr, "\xFF\xD1\x83\xC4", 4) && !mem_compare(ptr, "\xFF\xD1\x8B\x13", 4));
-
-		*d.pret = uint32(ptr + 2);
-	}
-}
-
-void meta_rebuild_callbacks()
-{
-	if (!g_metamod_active) return;
-
-	std::vector<fixdata_t> fixdata;
-	if (g_metaGlobals.esp_save) {
-		META_LOG("dll: Begin scan to collect callback fix data...");
-		meta_collect_fix_data(g_metaGlobals.esp_save, fixdata);
-	}
-
-	META_LOG("dll: Rebuilding callbacks...");
-
-#ifdef JIT_DEBUG_FILE
-	mdebug_to_file("dll: Rebuilding callbacks...\n");
-#endif
-
-	g_jit.clear_callbacks();
-
-	compile_engine_callbacks();
-	compile_gamedll_callbacks();
-
-	if (fixdata.size()) {
-		META_LOG("dll: Begin callbacks fixing...");
-		meta_apply_fix_data(fixdata);
-	}
-
-	META_LOG("dll: Callbacks rebuilded.");
-}

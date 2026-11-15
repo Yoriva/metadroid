@@ -1,162 +1,2816 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
-#define CDATA_DLL_H(x, p, h)    CDATA_ENTRY(DLL_FUNCTIONS, x, p, size_t(h))
-#define CDATA_DLL(x)            CDATA_ENTRY(DLL_FUNCTIONS, x, P_PRE, 0u)
-#define CDATA_NEWDLL_H(x, p, h) CDATA_ENTRY(NEW_DLL_FUNCTIONS, x, p, size_t(h))
-#define CDATA_NEWDLL(x)         CDATA_ENTRY(NEW_DLL_FUNCTIONS, x, P_PRE, 0u)
-
-DLL_FUNCTIONS sFunctionTable;
-DLL_FUNCTIONS sFunctionTable_jit;
+extern DLL_FUNCTIONS sFunctionTable;
 DLL_FUNCTIONS *pHookedDllFunctions = &sFunctionTable;
-NEW_DLL_FUNCTIONS sNewFunctionTable;
-NEW_DLL_FUNCTIONS sNewFunctionTable_jit;
+extern NEW_DLL_FUNCTIONS sNewFunctionTable;
 NEW_DLL_FUNCTIONS *pHookedNewDllFunctions = &sNewFunctionTable;
 
-// Unload game DLL and meta plugins
-void MM_POST_HOOK EXT_FUNC mm_GameShutdown()
+static void mm_GameInit(void)
 {
-	g_metamod_active = false;
-	if (g_plugins && !g_dedicated_server) g_plugins->unload_all();
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGameInit;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnGameInit;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGameInit;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
 
+static int mm_Spawn(edict_t *pent)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpawn;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSpawn;
+		if (_fn) {
+			dllret = _fn(pent);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpawn;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_Think(edict_t *pent)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnThink;
+		if (_fn) {
+			_fn(pent);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_Use(edict_t *pentUsed, edict_t *pentOther)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnUse;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentUsed, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnUse;
+		if (_fn) {
+			_fn(pentUsed, pentOther);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnUse;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentUsed, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_Touch(edict_t *pentTouched, edict_t *pentOther)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnTouch;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentTouched, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnTouch;
+		if (_fn) {
+			_fn(pentTouched, pentOther);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnTouch;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentTouched, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_Blocked(edict_t *pentBlocked, edict_t *pentOther)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnBlocked;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentBlocked, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnBlocked;
+		if (_fn) {
+			_fn(pentBlocked, pentOther);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnBlocked;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentBlocked, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_KeyValue(edict_t *pentKeyvalue, KeyValueData *pkvd)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnKeyValue;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentKeyvalue, pkvd);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnKeyValue;
+		if (_fn) {
+			_fn(pentKeyvalue, pkvd);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnKeyValue;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pentKeyvalue, pkvd);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_Save(edict_t *pent, SAVERESTOREDATA *pSaveData)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSave;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent, pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSave;
+		if (_fn) {
+			_fn(pent, pSaveData);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSave;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent, pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_Restore(edict_t *pent, SAVERESTOREDATA *pSaveData, int globalEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRestore;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pent, pSaveData, globalEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnRestore;
+		if (_fn) {
+			dllret = _fn(pent, pSaveData, globalEntity);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRestore;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pent, pSaveData, globalEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_SetAbsBox(edict_t *pent)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSetAbsBox;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSetAbsBox;
+		if (_fn) {
+			_fn(pent);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSetAbsBox;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pent);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SaveWriteFields(SAVERESTOREDATA *pSaveData, const char *pname, void *pBaseData, TYPEDESCRIPTION *pFields, int fieldCount)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveWriteFields;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSaveWriteFields;
+		if (_fn) {
+			_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveWriteFields;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SaveReadFields(SAVERESTOREDATA *pSaveData, const char *pname, void *pBaseData, TYPEDESCRIPTION *pFields, int fieldCount)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveReadFields;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSaveReadFields;
+		if (_fn) {
+			_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveReadFields;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData, pname, pBaseData, pFields, fieldCount);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SaveGlobalState(SAVERESTOREDATA *pSaveData)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSaveGlobalState;
+		if (_fn) {
+			_fn(pSaveData);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSaveGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_RestoreGlobalState(SAVERESTOREDATA *pSaveData)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRestoreGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnRestoreGlobalState;
+		if (_fn) {
+			_fn(pSaveData);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRestoreGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pSaveData);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ResetGlobalState(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnResetGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnResetGlobalState;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnResetGlobalState;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ClientKill(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientKill;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientKill;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientKill;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ClientPutInServer(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientPutInServer;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientPutInServer;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientPutInServer;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ClientUserInfoChanged(edict_t *pEntity, char *infobuffer)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientUserInfoChanged;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity, infobuffer);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientUserInfoChanged;
+		if (_fn) {
+			_fn(pEntity, infobuffer);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientUserInfoChanged;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity, infobuffer);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ServerActivate(edict_t *pEdictList, int edictCount, int clientMax)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnServerActivate;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEdictList, edictCount, clientMax);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnServerActivate;
+		if (_fn) {
+			_fn(pEdictList, edictCount, clientMax);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnServerActivate;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEdictList, edictCount, clientMax);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_PlayerPreThink(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerPreThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPlayerPreThink;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerPreThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_PlayerPostThink(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerPostThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPlayerPostThink;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerPostThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_StartFrame(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnStartFrame;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnStartFrame;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnStartFrame;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ParmsNewLevel(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnParmsNewLevel;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnParmsNewLevel;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnParmsNewLevel;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ParmsChangeLevel(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnParmsChangeLevel;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnParmsChangeLevel;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnParmsChangeLevel;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static const char * mm_GetGameDescription(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	const char * dllret{};
+	const char * override_ret{};
+	const char * pub_override_ret{};
+	const char * orig_ret{};
+	const char * pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetGameDescription;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnGetGameDescription;
+		if (_fn) {
+			dllret = _fn();
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetGameDescription;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_PlayerCustomization(edict_t *pEntity, customization_t *pCustom)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerCustomization;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity, pCustom);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPlayerCustomization;
+		if (_fn) {
+			_fn(pEntity, pCustom);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPlayerCustomization;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity, pCustom);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SpectatorConnect(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorConnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSpectatorConnect;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorConnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SpectatorDisconnect(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorDisconnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSpectatorDisconnect;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorDisconnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_SpectatorThink(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSpectatorThink;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSpectatorThink;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_Sys_Error(const char *error_string)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSys_Error;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(error_string);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSys_Error;
+		if (_fn) {
+			_fn(error_string);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSys_Error;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(error_string);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_PM_Move(struct playermove_s *ppmove, qboolean server)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_Move;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ppmove, server);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPM_Move;
+		if (_fn) {
+			_fn(ppmove, server);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_Move;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ppmove, server);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_PM_Init(struct playermove_s *ppmove)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_Init;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ppmove);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPM_Init;
+		if (_fn) {
+			_fn(ppmove);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_Init;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ppmove);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static char mm_PM_FindTextureType(char *name)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	char dllret{};
+	char override_ret{};
+	char pub_override_ret{};
+	char orig_ret{};
+	char pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_FindTextureType;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(name);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnPM_FindTextureType;
+		if (_fn) {
+			dllret = _fn(name);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnPM_FindTextureType;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(name);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_SetupVisibility(struct edict_s *pViewEntity, struct edict_s *pClient, unsigned char **pvs, unsigned char **pas)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSetupVisibility;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pViewEntity, pClient, pvs, pas);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnSetupVisibility;
+		if (_fn) {
+			_fn(pViewEntity, pClient, pvs, pas);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnSetupVisibility;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pViewEntity, pClient, pvs, pas);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_UpdateClientData(const struct edict_s *ent, int sendweapons, struct clientdata_s *cd)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnUpdateClientData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ent, sendweapons, cd);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnUpdateClientData;
+		if (_fn) {
+			_fn(ent, sendweapons, cd);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnUpdateClientData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(ent, sendweapons, cd);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_AddToFullPack(struct entity_state_s *state, int e, edict_t *ent, edict_t *host, int hostflags, int player, unsigned char *pSet)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnAddToFullPack;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(state, e, ent, host, hostflags, player, pSet);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnAddToFullPack;
+		if (_fn) {
+			dllret = _fn(state, e, ent, host, hostflags, player, pSet);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnAddToFullPack;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(state, e, ent, host, hostflags, player, pSet);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_CreateBaseline(int player, int eindex, struct entity_state_s *baseline, struct edict_s *entity, int playermodelindex, vec3_t player_mins, vec3_t player_maxs)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCreateBaseline;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player, eindex, baseline, entity, playermodelindex, player_mins, player_maxs);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnCreateBaseline;
+		if (_fn) {
+			_fn(player, eindex, baseline, entity, playermodelindex, player_mins, player_maxs);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCreateBaseline;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player, eindex, baseline, entity, playermodelindex, player_mins, player_maxs);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_RegisterEncoders(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRegisterEncoders;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnRegisterEncoders;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnRegisterEncoders;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_GetWeaponData(struct edict_s *player, struct weapon_data_s *info)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetWeaponData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(player, info);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnGetWeaponData;
+		if (_fn) {
+			dllret = _fn(player, info);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetWeaponData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(player, info);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_CmdStart(const edict_t *player, const struct usercmd_s *cmd, unsigned int random_seed)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCmdStart;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player, cmd, random_seed);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnCmdStart;
+		if (_fn) {
+			_fn(player, cmd, random_seed);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCmdStart;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player, cmd, random_seed);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_CmdEnd(const edict_t *player)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCmdEnd;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnCmdEnd;
+		if (_fn) {
+			_fn(player);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCmdEnd;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(player);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_ConnectionlessPacket(const struct netadr_s *net_from_, const char *args, char *response_buffer, int *response_buffer_size)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnConnectionlessPacket;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(net_from_, args, response_buffer, response_buffer_size);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnConnectionlessPacket;
+		if (_fn) {
+			dllret = _fn(net_from_, args, response_buffer, response_buffer_size);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnConnectionlessPacket;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(net_from_, args, response_buffer, response_buffer_size);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static int mm_GetHullBounds(int hullnumber, float *mins, float *maxs)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetHullBounds;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(hullnumber, mins, maxs);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnGetHullBounds;
+		if (_fn) {
+			dllret = _fn(hullnumber, mins, maxs);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGetHullBounds;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(hullnumber, mins, maxs);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_CreateInstancedBaselines(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCreateInstancedBaselines;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnCreateInstancedBaselines;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCreateInstancedBaselines;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_InconsistentFile(const struct edict_s *player, const char *filename, char *disconnect_message)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnInconsistentFile;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(player, filename, disconnect_message);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnInconsistentFile;
+		if (_fn) {
+			dllret = _fn(player, filename, disconnect_message);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnInconsistentFile;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(player, filename, disconnect_message);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static int mm_AllowLagCompensation(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnAllowLagCompensation;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnAllowLagCompensation;
+		if (_fn) {
+			dllret = _fn();
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnAllowLagCompensation;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_OnFreeEntPrivateData(edict_t *pEnt)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnOnFreeEntPrivateData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.newapi_table) {
+		auto _fn = g_GameDLL.funcs.newapi_table->pfnOnFreeEntPrivateData;
+		if (_fn) {
+			_fn(pEnt);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnOnFreeEntPrivateData;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static int mm_ShouldCollide(edict_t *pentTouched, edict_t *pentOther)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	int dllret{};
+	int override_ret{};
+	int pub_override_ret{};
+	int orig_ret{};
+	int pub_orig_ret{};
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnShouldCollide;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pentTouched, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.newapi_table) {
+		auto _fn = g_GameDLL.funcs.newapi_table->pfnShouldCollide;
+		if (_fn) {
+			dllret = _fn(pentTouched, pentOther);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnShouldCollide;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pentTouched, pentOther);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_CvarValue2(const edict_t *pEnt, int requestID, const char *cvarName, const char *value)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCvarValue2;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt, requestID, cvarName, value);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.newapi_table) {
+		auto _fn = g_GameDLL.funcs.newapi_table->pfnCvarValue2;
+		if (_fn) {
+			_fn(pEnt, requestID, cvarName, value);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCvarValue2;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt, requestID, cvarName, value);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static qboolean mm_ClientConnect(edict_t *pEntity, const char *pszName, const char *pszAddress, char szRejectReason[128])
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	qboolean dllret = 0, override_ret = 0, pub_override_ret = 0, orig_ret = 0, pub_orig_ret = 0;
+	g_players.clear_player_cvar_query(pEntity);
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientConnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pEntity, pszName, pszAddress, szRejectReason);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_SUPERCEDE) override_ret = pub_override_ret = dllret;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientConnect;
+		if (_fn) {
+			dllret = _fn(pEntity, pszName, pszAddress, szRejectReason);
+		}
+	}
+	orig_ret = dllret;
+	pub_orig_ret = orig_ret;
+	g_metaGlobals.orig_ret = &pub_orig_ret;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientConnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		pub_orig_ret = orig_ret;
+		g_metaGlobals.orig_ret = &pub_orig_ret;
+		pub_override_ret = override_ret;
+		g_metaGlobals.override_ret = &pub_override_ret;
+		dllret = _fn(pEntity, pszName, pszAddress, szRejectReason);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		if (mres == MRES_OVERRIDE) override_ret = pub_override_ret = dllret;
+	}
+	g_metaGlobals = backup;
+	return (status == MRES_OVERRIDE) ? override_ret : orig_ret;
+}
+
+static void mm_ClientDisconnect(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	g_players.clear_player_cvar_query(pEntity);
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientDisconnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientDisconnect;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientDisconnect;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ClientCommand(edict_t *pEntity)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	if (g_config->m_clientmeta && !Q_strcmp(CMD_ARGV(0), "meta"))
+		client_meta(pEntity);
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientCommand;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnClientCommand;
+		if (_fn) {
+			_fn(pEntity);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnClientCommand;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEntity);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_ServerDeactivate(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnServerDeactivate;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.dllapi_table) {
+		auto _fn = g_GameDLL.funcs.dllapi_table->pfnServerDeactivate;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_dllapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnServerDeactivate;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_plugins->refresh(PT_CHANGELEVEL);
+	g_plugins->unpause_all();
+	g_players.clear_all_cvar_queries();
+	g_requestid_counter = 0;
+	g_metaGlobals = backup;
+}
+
+static void mm_CvarValue(const edict_t *pEnt, const char *value)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	g_players.clear_player_cvar_query(pEnt);
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCvarValue;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt, value);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.newapi_table) {
+		auto _fn = g_GameDLL.funcs.newapi_table->pfnCvarValue;
+		if (_fn) {
+			_fn(pEnt, value);
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnCvarValue;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn(pEnt, value);
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metaGlobals = backup;
+}
+
+static void mm_GameShutdown(void)
+{
+	meta_globals_t backup = g_metaGlobals;
+	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
+	prev_mres = MRES_UNSET;
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGameShutdown;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	if (status != MRES_SUPERCEDE && g_GameDLL.funcs.newapi_table) {
+		auto _fn = g_GameDLL.funcs.newapi_table->pfnGameShutdown;
+		if (_fn) {
+			_fn();
+		}
+	}
+	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
+		if (_p->status() != PL_RUNNING) continue;
+		auto *_t = _p->m_newapi_post_table;
+		if (!_t) continue;
+		auto _fn = _t->pfnGameShutdown;
+		if (!_fn) continue;
+		g_metaGlobals.mres = MRES_UNSET;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+		_fn();
+		mres = g_metaGlobals.mres;
+		if ((int)mres > (int)status) status = mres;
+		prev_mres = mres;
+		g_metaGlobals.prev_mres = prev_mres;
+		g_metaGlobals.status = status;
+	}
+	g_metamod_active = false;
+	if (g_plugins && !g_dedicated_server)
+		g_plugins->unload_all();
 	g_meta_extdll.unload();
 	g_GameDLL.sys_module.unload();
 	g_engine.sys_module.unload();
+	g_metaGlobals = backup;
 }
 
-void MM_PRE_HOOK EXT_FUNC mm_ClientConnect(edict_t *pEntity, const char *, const char *, char[128])
+DLL_FUNCTIONS sFunctionTable =
 {
-	g_players.clear_player_cvar_query(pEntity);
-}
-
-void MM_PRE_HOOK EXT_FUNC mm_ClientDisconnect(edict_t *pEntity)
-{
-	g_players.clear_player_cvar_query(pEntity);
-}
-
-// this forward can be disabled from metamod.cpp
-void MM_PRE_HOOK mm_ClientCommand(edict_t *pEntity)
-{
-	if (!Q_strcmp(CMD_ARGV(0), "meta")) {
-		client_meta(pEntity);
-	}
-}
-
-void EXT_FUNC mm_ServerDeactivate()
-{
-	sFunctionTable_jit.pfnServerDeactivate();
-
-	// Update loaded plugins.  Look for new plugins in inifile, as well as
-	// any plugins waiting for a changelevel to load.
-	//
-	// This is done in ServerDeactivate rather than Activate, as the latter
-	// isn't actually the first routine to be called on a new map.  In
-	// particular DispatchKeyValue and DispatchSpawn are called before
-	// Activate, and we want any newly loaded plugins to be able to catch
-	// these.
-	//
-	// So, we do this from Deactivate, which is the _last_ routine called
-	// from the previous map.  It's also called right before shutdown,
-	// which means whenever hlds quits, it'll reload the plugins just
-	// before it exits, which is rather silly, but oh well.
-	g_plugins->refresh(PT_CHANGELEVEL); // <- callbacks rebuilded (!)
-	g_plugins->unpause_all();
-	// g_plugins->retry_all(PT_CHANGELEVEL);
-	g_players.clear_all_cvar_queries();
-	g_requestid_counter = 0;
-
-	/* RETURN TO ENGINE */
-}
-
-compile_data_t g_dllfunc_cdata[] =
-{
-	CDATA_DLL(pfnGameInit),                                         // Initialize the game (one-time call after loading of game .dll)
-	CDATA_DLL(pfnSpawn),                                            // 
-	CDATA_DLL(pfnThink),                                            // 
-	CDATA_DLL(pfnUse),                                              // 
-	CDATA_DLL(pfnTouch),                                            // 
-	CDATA_DLL(pfnBlocked),                                          // 
-	CDATA_DLL(pfnKeyValue),                                         // 
-	CDATA_DLL(pfnSave),                                             // 
-	CDATA_DLL(pfnRestore),                                          // 
-	CDATA_DLL(pfnSetAbsBox),                                        // 
-                                                                       
-	CDATA_DLL(pfnSaveWriteFields),                                  // 
-	CDATA_DLL(pfnSaveReadFields),                                   // 
-                                                                       
-	CDATA_DLL(pfnSaveGlobalState),                                  // 
-	CDATA_DLL(pfnRestoreGlobalState),                               // 
-	CDATA_DLL(pfnResetGlobalState),                                 // 
-                                                                       
-	CDATA_DLL_H(pfnClientConnect, P_PRE, mm_ClientConnect),         // (wd) Client has connected
-	CDATA_DLL_H(pfnClientDisconnect, P_PRE, mm_ClientDisconnect),   // (wd) Player has left the game
-	CDATA_DLL(pfnClientKill),                                       // (wd) Player has typed "kill"
-	CDATA_DLL(pfnClientPutInServer),                                // (wd) Client is entering the game
-	CDATA_DLL_H(pfnClientCommand, P_PRE, mm_ClientCommand),            
-	CDATA_DLL(pfnClientUserInfoChanged),                            // (wd) Client has updated their setinfo structure
-	CDATA_DLL(pfnServerActivate),                                   // (wd) Server is starting a new map
-	CDATA_DLL(pfnServerDeactivate),                                 // (wd) Server is leaving the map (shutdown), or changelevel); SDK2
-                                                                       
-	CDATA_DLL(pfnPlayerPreThink),                                   // 
-	CDATA_DLL(pfnPlayerPostThink),                                  // 
-                                                                       
-	CDATA_DLL(pfnStartFrame),                                       // 
-	CDATA_DLL(pfnParmsNewLevel),                                    // 
-	CDATA_DLL(pfnParmsChangeLevel),                                 // 
-                                                                       
-	CDATA_DLL(pfnGetGameDescription),                               // Returns string describing current .dll.  E.g. "TeamFotrress 2"), "Half-Life"
-	CDATA_DLL(pfnPlayerCustomization),                              // Notifies .dll of new customization for player.
-                                                                       
-	CDATA_DLL(pfnSpectatorConnect),                                 // Called when spectator joins server
-	CDATA_DLL(pfnSpectatorDisconnect),                              // Called when spectator leaves the server
-	CDATA_DLL(pfnSpectatorThink),                                   // Called when spectator sends a command packet (usercmd_t)
-                                                                       
-	CDATA_DLL(pfnSys_Error),                                        // Notify game .dll that engine is going to shut down.  Allows mod authors to set a breakpoint.  SDK2
-                                                                       
-	CDATA_DLL(pfnPM_Move),                                          // (wd) SDK2
-	CDATA_DLL(pfnPM_Init),                                          // Server version of player movement initialization; (wd) SDK2
-	CDATA_DLL(pfnPM_FindTextureType),                               // (wd) SDK2
-                                                                       
-	CDATA_DLL(pfnSetupVisibility),                                  // Set up PVS and PAS for networking for this client; (wd) SDK2
-	CDATA_DLL(pfnUpdateClientData),                                 // Set up data sent only to specific client; (wd) SDK2
-	CDATA_DLL(pfnAddToFullPack),                                    // (wd) SDK2
-	CDATA_DLL(pfnCreateBaseline),                                   // Tweak entity baseline for network encoding), allows setup of player baselines), too.; (wd) SDK2
-	CDATA_DLL(pfnRegisterEncoders),                                 // Callbacks for network encoding; (wd) SDK2
-	CDATA_DLL(pfnGetWeaponData),                                    // (wd) SDK2
-	CDATA_DLL(pfnCmdStart),                                         // (wd) SDK2
-	CDATA_DLL(pfnCmdEnd),                                           // (wd) SDK2
-	CDATA_DLL(pfnConnectionlessPacket),                             // (wd) SDK2
-	CDATA_DLL(pfnGetHullBounds),                                    // (wd) SDK2
-	CDATA_DLL(pfnCreateInstancedBaselines),                         // (wd) SDK2
-	CDATA_DLL(pfnInconsistentFile),                                 // (wd) SDK2
-	CDATA_DLL(pfnAllowLagCompensation),                             // (wd) SDK2
+	mm_GameInit,
+	mm_Spawn,
+	mm_Think,
+	mm_Use,
+	mm_Touch,
+	mm_Blocked,
+	mm_KeyValue,
+	mm_Save,
+	mm_Restore,
+	mm_SetAbsBox,
+	mm_SaveWriteFields,
+	mm_SaveReadFields,
+	mm_SaveGlobalState,
+	mm_RestoreGlobalState,
+	mm_ResetGlobalState,
+	mm_ClientConnect,
+	mm_ClientDisconnect,
+	mm_ClientKill,
+	mm_ClientPutInServer,
+	mm_ClientCommand,
+	mm_ClientUserInfoChanged,
+	mm_ServerActivate,
+	mm_ServerDeactivate,
+	mm_PlayerPreThink,
+	mm_PlayerPostThink,
+	mm_StartFrame,
+	mm_ParmsNewLevel,
+	mm_ParmsChangeLevel,
+	mm_GetGameDescription,
+	mm_PlayerCustomization,
+	mm_SpectatorConnect,
+	mm_SpectatorDisconnect,
+	mm_SpectatorThink,
+	mm_Sys_Error,
+	mm_PM_Move,
+	mm_PM_Init,
+	mm_PM_FindTextureType,
+	mm_SetupVisibility,
+	mm_UpdateClientData,
+	mm_AddToFullPack,
+	mm_CreateBaseline,
+	mm_RegisterEncoders,
+	mm_GetWeaponData,
+	mm_CmdStart,
+	mm_CmdEnd,
+	mm_ConnectionlessPacket,
+	mm_GetHullBounds,
+	mm_CreateInstancedBaselines,
+	mm_InconsistentFile,
+	mm_AllowLagCompensation,
 };
 
-compile_data_t g_newdllfunc_cdata[] =
+NEW_DLL_FUNCTIONS sNewFunctionTable =
 {
-	CDATA_NEWDLL(pfnOnFreeEntPrivateData),                          // Called right before the object's memory is freed. Calls its destructor.
-	CDATA_NEWDLL_H(pfnGameShutdown, P_POST, mm_GameShutdown),        //
-	CDATA_NEWDLL(pfnShouldCollide),                                 //
-
-	CDATA_NEWDLL(pfnCvarValue),                                     // (fz) Use mm_CvarValue2 instead
-	CDATA_NEWDLL(pfnCvarValue2)                                     // (fz) When pfnQueryClientCvarValue2() completes it will call
-	// pfnCvarValue2() with the request ID supplied earlier, the name of the cvar requested and the value of that cvar.
+	&mm_OnFreeEntPrivateData,
+	&mm_GameShutdown,
+	&mm_ShouldCollide,
+	&mm_CvarValue,
+	&mm_CvarValue2,
 };
 
-// It's not clear what the difference is between GetAPI and GetAPI2; they
-// both appear to return the exact same function table.
-//
-// Only one of them appears to be ever called, though.  If the DLL provides
-// GetAPI2, the engine/hlds will call that, and will not call GetAPI.  If
-// the engine couldn't find GetAPI2 in the DLL, it appears to fall back to
-// GetAPI.
-//
-// So, GetAPI2 appears to replace GetAPI, and appears to have been added
-// with SDK 2.0.  My best guess is that, with the new SDK, interface
-// version checking became important, and without the int ptr used in
-// GetAPI2, the engine can't find out the version of the DLL via GetAPI.
-//
-// It's unclear whether a DLL coded under SDK2 needs to provide the older
-// GetAPI or not..
 C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable, int interfaceVersion)
 {
 	META_DEBUG(3, "called: GetEntityAPI; version=%d", interfaceVersion);
@@ -168,7 +2822,6 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable, int interfaceVersion
 		META_ERROR("GetEntityAPI version mismatch; requested=%d ours=%d", interfaceVersion, INTERFACE_VERSION);
 		return FALSE;
 	}
-
 	Q_memcpy(pFunctionTable, &sFunctionTable, sizeof(DLL_FUNCTIONS));
 	return TRUE;
 }
@@ -176,18 +2829,15 @@ C_DLLEXPORT int GetEntityAPI(DLL_FUNCTIONS *pFunctionTable, int interfaceVersion
 C_DLLEXPORT int GetEntityAPI2(DLL_FUNCTIONS *pFunctionTable, int *interfaceVersion)
 {
 	META_DEBUG(3, "called: GetEntityAPI2; version=%d", *interfaceVersion);
-
 	if (!pFunctionTable) {
 		META_ERROR("GetEntityAPI2 called with null pFunctionTable");
 		return FALSE;
 	}
 	if (*interfaceVersion != INTERFACE_VERSION) {
 		META_ERROR("GetEntityAPI2 version mismatch; requested=%d ours=%d", *interfaceVersion, INTERFACE_VERSION);
-		//! Tell engine what version we had, so it can figure out who is out of date.
 		*interfaceVersion = INTERFACE_VERSION;
 		return FALSE;
 	}
-
 	Q_memcpy(pFunctionTable, &sFunctionTable, sizeof(DLL_FUNCTIONS));
 	return TRUE;
 }
@@ -195,136 +2845,17 @@ C_DLLEXPORT int GetEntityAPI2(DLL_FUNCTIONS *pFunctionTable, int *interfaceVersi
 C_DLLEXPORT int GetNewDLLFunctions(NEW_DLL_FUNCTIONS *pNewFunctionTable, int *interfaceVersion)
 {
 	META_DEBUG(6, "called: GetNewDLLFunctions; version=%d", *interfaceVersion);
-
-#if 0
-	// ~dvander - but then you can't use cvar querying on many mods...
-	// Don't provide these functions to engine if gamedll doesn't provide
-	// them. Otherwise, we're in the position of having to provide answers
-	// we can't necessarily provide (for instance, ShouldCollide())...
-	if (!GameDLL.funcs.newapi_table)
-		return FALSE;
-#endif
-
 	if (!pNewFunctionTable) {
 		META_ERROR("GetNewDLLFunctions called with null pNewFunctionTable");
 		return FALSE;
 	}
 	if (*interfaceVersion != NEW_DLL_FUNCTIONS_VERSION) {
 		META_ERROR("GetNewDLLFunctions version mismatch; requested=%d ours=%d", *interfaceVersion, NEW_DLL_FUNCTIONS_VERSION);
-		//! Tell engine what version we had, so it can figure out who is out of date.
 		*interfaceVersion = NEW_DLL_FUNCTIONS_VERSION;
 		return FALSE;
 	}
-
 	g_meta_extdll.load();
 	Q_memcpy(pNewFunctionTable, &sNewFunctionTable, sizeof(NEW_DLL_FUNCTIONS));
 	return TRUE;
 }
 
-C_DLLEXPORT int Server_GetPhysicsInterface(int iVersion, server_physics_api_t *pfuncsFromEngine, physics_interface_t *pFunctionTable)
-{
-	// TODO: provide physint to plugins
-	if (iVersion != SV_PHYSICS_INTERFACE_VERSION || pfuncsFromEngine == nullptr || pFunctionTable == nullptr)
-		return FALSE;
-
-
-	// we have linkent alternative, shutdown linkent replacement
-	meta_shutdown_linkent_replacement();
-
-	// engine always require for nullptr, only replace single function needed for linkent alternative
-	Q_memset(pFunctionTable, 0, sizeof(*pFunctionTable));
-	pFunctionTable->SV_CreateEntity = [](edict_t *pent, const char *szName)
-	{
-		// check if gamedll implements this entity
-		ENTITY_FN SpawnEdict = reinterpret_cast<ENTITY_FN>(g_GameDLL.sys_module.getsym(szName));
-
-		// should we check metamod module itself? engine will do GPA on metamod module before failing back to this call anyway
-		if( !SpawnEdict )
-			return -1; // failed
-
-		SpawnEdict( &pent->v );
-		return 0; // handled
-	};
-	return TRUE;
-}
-
-void compile_dllfunc_callbacks()
-{
-	jitdata_t jitdata;
-	jitdata.plugins = g_plugins ? g_plugins->getPlugins() : nullptr;
-	jitdata.table_offset = offsetof(MPlugin, m_dllapi_table);
-	jitdata.post_table_offset = offsetof(MPlugin, m_dllapi_post_table);
-
-	for (auto& cd : g_dllfunc_cdata) {
-		jitdata.pfn_original = *(size_t *)(size_t(g_GameDLL.funcs.dllapi_table) + cd.offset);
-		jitdata.args_count = cd.args_count;
-		jitdata.rettype = cd.rettype;
-		jitdata.has_varargs = cd.has_varargs;
-		jitdata.pfn_offset = cd.offset;
-		jitdata.mm_hook_time = cd.mm_hook_time;
-		jitdata.mm_hook = cd.mm_hook;
-
-#ifdef JIT_DEBUG
-		jitdata.name = cd.name;
-#endif
-
-		*(size_t *)(size_t(&sFunctionTable_jit) + cd.offset) = g_jit.compile_callback(&jitdata);
-	}
-}
-
-void compile_newdllfunc_callbacks()
-{
-	jitdata_t jitdata;
-	jitdata.plugins = g_plugins ? g_plugins->getPlugins() : nullptr;
-	jitdata.table_offset = offsetof(MPlugin, m_newapi_table);
-	jitdata.post_table_offset = offsetof(MPlugin, m_newapi_post_table);
-
-	for (auto& cd : g_newdllfunc_cdata) {
-		jitdata.pfn_original = g_GameDLL.funcs.newapi_table ? *(size_t *)(size_t(g_GameDLL.funcs.newapi_table) + cd.offset) : 0;
-		jitdata.args_count = cd.args_count;
-		jitdata.rettype = cd.rettype;
-		jitdata.has_varargs = cd.has_varargs;
-		jitdata.pfn_offset = cd.offset;
-		jitdata.mm_hook_time = cd.mm_hook_time;
-		jitdata.mm_hook = cd.mm_hook;
-
-#ifdef JIT_DEBUG
-		jitdata.name = cd.name;
-#endif
-
-		*(size_t *)(size_t(&sNewFunctionTable_jit) + cd.offset) = g_jit.compile_callback(&jitdata);
-	}
-}
-
-void compile_gamedll_tramps()
-{
-	// we compile simple static functions that will call dynamic callbacks
-	for (auto& cd : g_dllfunc_cdata) {
-		*(size_t *)(size_t(&sFunctionTable) + cd.offset) = g_jit.compile_tramp(size_t(&sFunctionTable_jit) + cd.offset);
-	}
-
-	// use direct hook to prevent crash after callbacks rebuilding
-	sFunctionTable.pfnServerDeactivate = mm_ServerDeactivate;
-
-	for (auto& cd : g_newdllfunc_cdata) {
-		*(size_t *)(size_t(&sNewFunctionTable) + cd.offset) = g_jit.compile_tramp(size_t(&sNewFunctionTable_jit) + cd.offset);
-	}
-}
-
-void compile_gamedll_callbacks()
-{
-	static bool initialized = false;
-
-	if (!initialized) {
-		compile_gamedll_tramps();
-		initialized = true;
-	}
-
-	compile_dllfunc_callbacks();
-	compile_newdllfunc_callbacks();
-}
-
-void disable_clientcommand_fwd()
-{
-	g_dllfunc_cdata[offsetof(DLL_FUNCTIONS, pfnClientCommand) / sizeof(int)].mm_hook = 0;
-}

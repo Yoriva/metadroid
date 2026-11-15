@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "dllapi.h"             // GETENTITYAPI_FN, etc
 #include "h_export.h"
@@ -48,9 +48,7 @@ struct meta_globals_t
 	void *orig_ret;         // readable; return value from "real" function
 	void *override_ret;     // readable; return value from overriding/superceding plugin
 
-#ifdef METAMOD_CORE
-	uint32* esp_save;
-#endif
+
 };
 
 extern meta_globals_t *gpMetaGlobals;

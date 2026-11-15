@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "version/appversion.h"
 
@@ -17,7 +17,6 @@
 #include <list>
 
 #include "osconfig.h"
-#include "jitasm.h"
 #include "strtools.h"
 
 #define CreateInterface mm_CreateInterface
@@ -50,10 +49,6 @@
 #include "sdk_util.h"
 #include "enginecallbacks.h"
 #include "utils.h"
-#include "mem_utils.h"
-#include "callback_jit.h"
 #include "meta_rehlds_api.h"
-#include "physint.h"
 
 #undef CreateInterface
-#include "linkent.h"

@@ -1,4 +1,4 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
 const module_handle_t CSysModule::INVALID_HANDLE = (module_handle_t)0;
 
@@ -9,21 +9,6 @@ CSysModule::CSysModule() : m_handle(INVALID_HANDLE), m_base(0), m_size(0), m_fre
 bool CSysModule::is_opened() const
 {
 	return m_handle != INVALID_HANDLE;
-}
-
-char *CSysModule::find_string_push(const char *string)
-{
-	return mem_find_string_push((char *)getbase(), string, getsize());
-}
-
-char *CSysModule::find_pattern(char *pos, int range, const char *pattern, size_t len)
-{
-	for (auto c = pos + range - len; pos < c; ++pos) {
-		if (mem_compare(pos, pattern, len))
-			return pos;
-	}
-
-	return nullptr;
 }
 
 #ifdef _WIN32
@@ -157,6 +142,12 @@ module_handle_t CSysModule::find(void *addr)
 module_handle_t CSysModule::load(const char *filepath)
 {
 	if (!m_handle) {
+#ifndef RTLD_DEEPBIND
+#define RTLD_DEEPBIND 0
+#endif
+#ifndef RTLD_NOLOAD
+#define RTLD_NOLOAD 0
+#endif
 		m_handle = dlopen(filepath, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
 		if (m_handle) m_free = true;
 
@@ -165,10 +156,10 @@ module_handle_t CSysModule::load(const char *filepath)
 
 		FILE* fp = fopen(buf, "r");
 
-		while (fgets(buf, sizeof buf, fp)) {
-			uintptr_t start, end;
+		while (fp && fgets(buf, sizeof buf, fp)) {
+			uintptr_t start = 0, end = 0;
 
-			int args = sscanf(buf, "%x-%x %128s %128s %128s %128s %255s", &start, &end, dummy, dummy, dummy, dummy, path);
+			int args = sscanf(buf, "%lx-%lx %128s %128s %128s %128s %255s", &start, &end, dummy, dummy, dummy, dummy, path);
 			if (args != 7) {
 				continue;
 			}
@@ -180,7 +171,8 @@ module_handle_t CSysModule::load(const char *filepath)
 			}
 		}
 
-		fclose(fp);
+		if (fp)
+			fclose(fp);
 	}
 
 	return m_handle;

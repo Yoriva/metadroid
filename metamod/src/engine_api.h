@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 struct enginefuncs_s;
 
@@ -14,7 +14,6 @@ typedef int (*GET_ENGINE_FUNCTIONS_FN)(enginefuncs_s* pengfuncsFromEngine, int* 
 #ifdef METAMOD_CORE
 extern enginefuncs_t g_meta_engfuncs;
 
-void compile_engine_callbacks();
 #else
 	extern enginefuncs_t meta_engfuncs;
 #endif

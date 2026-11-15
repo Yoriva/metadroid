@@ -1,4 +1,4 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
 static hudtextparms_t g_default_csay_tparms = {
 	-1, 0.25,		// x, y
@@ -163,6 +163,8 @@ void EXT_FUNC mutil_CenterSay(plid_t plid, const char* fmt, ...)
 }
 
 // Print a center-message, with given text parameters.
+typedef void (*ENTITY_FN) (entvars_t *);
+
 void EXT_FUNC mutil_CenterSayParms(plid_t plid, hudtextparms_t tparms, const char* fmt, ...)
 {
 	va_list ap;
@@ -301,8 +303,6 @@ int EXT_FUNC mutil_LoadMetaPlugin(plid_t plid, const char* fname, PLUG_LOADTIME 
 		return 1; // TODO: WTF
 	}
 
-	meta_rebuild_callbacks();
-
 	if (plugin_handle)
 		*plugin_handle = (void *)pl_loaded->sys_module().gethandle();
 
@@ -330,7 +330,6 @@ int EXT_FUNC mutil_UnloadMetaPlugin(plid_t plid, const char* fname, PLUG_LOADTIM
 		return 1;
 
 	if (findp->plugin_unload(plid, now, reason)) {
-		meta_rebuild_callbacks();
 		return 0;
 	}
 
@@ -349,7 +348,6 @@ int EXT_FUNC mutil_UnloadMetaPluginByHandle(plid_t plid, void* plugin_handle, PL
 		return 1;
 
 	if (findp->plugin_unload(plid, now, reason)) {
-		meta_rebuild_callbacks();
 		return 0;
 	}
 

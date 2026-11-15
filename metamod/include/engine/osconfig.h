@@ -1,4 +1,4 @@
-/*
+﻿/*
 *
 *    This program is free software; you can redistribute it and/or modify it
 *    under the terms of the GNU General Public License as published by the
@@ -54,7 +54,9 @@
 	#include <wsipx.h> // for support IPX
 	#define PSAPI_VERSION 1
 	#include <psapi.h>
+	#if defined(_M_IX86) || defined(_M_X64)
 	#include <nmmintrin.h>
+#endif
 	#include <fcntl.h>
 	#include <sys/types.h>
 	#include <sys/stat.h>
@@ -87,8 +89,10 @@
 #include <fstream>
 #include <iomanip>
 
-#include <smmintrin.h>
-#include <xmmintrin.h>
+#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
+	#include <smmintrin.h>
+	#include <xmmintrin.h>
+#endif
 
 
 #ifdef _WIN32 // WINDOWS
@@ -151,15 +155,23 @@
 	typedef unsigned int UNINT32;
 
 	#define FASTCALL
-	#define CDECL __attribute__ ((cdecl))
-	#define STDCALL __attribute__ ((stdcall))
+	#if defined(__i386__) || defined(__x86_64__)
+		#define CDECL __attribute__ ((cdecl))
+		#define STDCALL __attribute__ ((stdcall))
+	#else
+		#define CDECL
+		#define STDCALL
+	#endif
 	#define HIDDEN __attribute__((visibility("hidden")))
 	#define FORCEINLINE inline
 	#define NOINLINE __attribute__((noinline))
 	#define ALIGN16 __attribute__((aligned(16)))
 	#define NORETURN __attribute__((noreturn))
+	#if defined(__i386__) || defined(__x86_64__)
 	#define FORCE_STACK_ALIGN __attribute__((force_align_arg_pointer))
-
+	#else
+	#define FORCE_STACK_ALIGN
+	#endif
 #if defined __INTEL_COMPILER
 	#define FUNC_TARGET(x)
 
@@ -167,7 +179,11 @@
 	#define __builtin_bswap32 _bswap
 	#define __builtin_bswap64 _bswap64
 #else
+	#if defined(__i386__) || defined(__x86_64__)
 	#define FUNC_TARGET(x) __attribute__((target(x)))
+	#else
+	#define FUNC_TARGET(x)
+	#endif
 #endif // __INTEL_COMPILER
 
 	//inline bool SOCKET_FIONBIO(SOCKET s, int m) { return (ioctl(s, FIONBIO, (int*)&m) == 0); }

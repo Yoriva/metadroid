@@ -1,4 +1,4 @@
-#include "precompiled.h"
+﻿#include "precompiled.h"
 
 const char* g_platform_postfixes[4] =
 {
