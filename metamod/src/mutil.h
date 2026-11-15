@@ -4,6 +4,7 @@
 #include <util.h>
 #endif // ACTIVITY_H
 #include "plinfo.h"
+#include "sdk_util.h"
 
 // For GetGameInfo:
 enum ginfo_t
