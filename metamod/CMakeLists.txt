@@ -53,7 +53,7 @@ set(METAMOD_SOURCES
 add_library(metamod SHARED ${METAMOD_SOURCES})
 set_target_properties(metamod PROPERTIES
 	POSITION_INDEPENDENT_CODE ON
-	OUTPUT_NAME "metamod_android_${ARCH_SUFFIX}"
+	OUTPUT_NAME "metadroid_android_${ARCH_SUFFIX}"
 )
 target_include_directories(metamod PRIVATE ${PROJECT_HEADERS_DIR})
 target_compile_options(metamod PRIVATE
