@@ -18,6 +18,12 @@
 char* UTIL_VarArgs(const char* format, ...);
 void UTIL_HudMessage(edict_t* pEntity, const hudtextparms_t& textparms, const char* pMessage);
 
+#if defined(AMX_NOPROPLIST)
+inline int ENTINDEX(const edict_t *pEdict) {
+	return (*g_engfuncs.pfnIndexOfEdict)(pEdict);
+}
+#endif
+
 inline char* ENTITY_KEYVALUE(edict_t *entity, char *key) {
 	return(INFOKEY_VALUE(GET_INFOKEYBUFFER(entity), key));
 }

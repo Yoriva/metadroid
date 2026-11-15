@@ -100,8 +100,8 @@ typedef void (*META_INIT_FN)();
 
 // Get info about plugin, compare meta_interface versions, provide meta
 // utility callback functions.
-C_DLLEXPORT int Meta_Query(char *interfaceVersion, plugin_info_t **plinfo, mutil_funcs_t *pMetaUtilFuncs);
-typedef int (*META_QUERY_FN)(char *interfaceVersion, plugin_info_t **plinfo, mutil_funcs_t *pMetaUtilFuncs);
+C_DLLEXPORT int Meta_Query(const char *interfaceVersion, plugin_info_t **plinfo, mutil_funcs_t *pMetaUtilFuncs);
+typedef int (*META_QUERY_FN)(const char *interfaceVersion, plugin_info_t **plinfo, mutil_funcs_t *pMetaUtilFuncs);
 
 // Attach the plugin to the API; get the table of getapi functions; give
 // meta_globals and gamedll_funcs.
