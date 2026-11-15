@@ -18,9 +18,6 @@ char(&ArraySizeHelper(T(&array)[N]))[N];
 
 bool is_yes(const char* str);
 bool is_no(const char* str);
-
-const char* LOCALINFO(char* key);
-
 #ifdef _WIN32
 char *mm_strtok_r(char *s, const char *delim, char **ptrptr);
 char *realpath(const char *file_name, char *resolved_name);
