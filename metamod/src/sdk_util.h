@@ -11,9 +11,9 @@
 // type is correct and the <enginecallback.h> header protection is already
 // defined.
 #include "enginecallbacks.h"
-#ifndef FIND_ENTITY_BY_CLASSNAME
+#ifndef ACTIVITY_H
 #include <util.h>
-#endif // FIND_ENTITY_BY_CLASSNAME
+#endif // ACTIVITY_H
 
 char* UTIL_VarArgs(const char* format, ...);
 void UTIL_HudMessage(edict_t* pEntity, const hudtextparms_t& textparms, const char* pMessage);
