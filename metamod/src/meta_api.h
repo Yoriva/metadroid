@@ -4,6 +4,7 @@
 #include "h_export.h"
 #include "engine_api.h"         // GET_ENGINE_FUNCTIONS_FN, etc
 #include "enginecallbacks.h"
+#include "osdep.h"
 #include "plinfo.h"             // plugin_info_t, etc
 #include "mutil.h"
 

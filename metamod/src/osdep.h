@@ -64,3 +64,15 @@
         #define S_IWGRP S_IWUSR
     #endif
 #endif // _WIN32
+
+// dlsym handles, matching the metamod API contract expected by consumers.
+#ifdef _WIN32
+	#include <windows.h>
+	typedef HINSTANCE DLHANDLE;
+	typedef FARPROC DLFUNC;
+#else
+	typedef void* DLHANDLE;
+	typedef void* DLFUNC;
+#endif // _WIN32
+
+#include "mreg.h"				// MAX_REG_MSGS, REG_CMD_FN, etc
