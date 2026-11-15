@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 // Width required to printf a Reg*List index number, for show() functions.
 // This used to correspond to the number of digits in MAX_REG, which was a
 // fixed, compile-time limit. However, now that the reg lists are grown

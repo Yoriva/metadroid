@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 // We're not including the DBG_EntOfVars and DBG_AssertFunction routines
 // mentioned in the SDK util.h, so we're going to unset DEBUG here so that
@@ -11,7 +11,9 @@
 // type is correct and the <enginecallback.h> header protection is already
 // defined.
 #include "enginecallbacks.h"
+#ifndef FIND_ENTITY_BY_CLASSNAME
 #include <util.h>
+#endif // FIND_ENTITY_BY_CLASSNAME
 
 char* UTIL_VarArgs(const char* format, ...);
 void UTIL_HudMessage(edict_t* pEntity, const hudtextparms_t& textparms, const char* pMessage);

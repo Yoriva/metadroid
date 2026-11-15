@@ -1,6 +1,8 @@
-#pragma once
+﻿#pragma once
 
+#ifndef FIND_ENTITY_BY_CLASSNAME
 #include <util.h>
+#endif // FIND_ENTITY_BY_CLASSNAME
 #include "plinfo.h"
 
 // For GetGameInfo:
