@@ -21,6 +21,8 @@ void WINAPI GiveFnptrsToDll(enginefuncs_t* pengfuncsFromEngine, globalvars_t* pG
 
 	g_engfuncs = *pengfuncsFromEngine;
 	flush_ALERT_buffer();
+	ALERT(at_logged, "[mm-diag] engine table pfnTraceLine=%p pfnTraceHull=%p pfnTraceModel=%p metatable pfnTraceLine=%p\n",
+		g_engfuncs.pfnTraceLine, g_engfuncs.pfnTraceHull, g_engfuncs.pfnTraceModel, g_meta_engfuncs.pfnTraceLine);
 	// NOTE!  Have to call logging function _after_ initialising g_engfuncs, so
 	// that g_engfuncs.pfnAlertMessage() can be resolved properly, heh. :)
 	META_DEV("called: GiveFnptrsToDll");
