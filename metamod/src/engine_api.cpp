@@ -1714,13 +1714,16 @@ static unsigned int mm_trace_diag = 0;
 
 static void mm_TraceLine(const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr)
 {
-	const bool diag = mm_trace_diag < 200 && fNoMonsters == 0;
+	const double dx = v2[0] - v1[0], dy = v2[1] - v1[1], dz = v2[2] - v1[2];
+	const bool bulletTrace = (dx * dx + dy * dy + dz * dz) > 7000.0 * 7000.0;
+	const bool diag = mm_trace_diag < 5000 && fNoMonsters == 0 && bulletTrace;
 	if (diag) mm_trace_diag++;
 	meta_globals_t backup = g_metaGlobals;
 	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
 	if (diag) {
-		ALERT(at_logged, "[mm-diag] TraceLine in fNoMonsters=%d skip=%p v1=(%.1f %.1f %.1f) v2=(%.1f %.1f %.1f)\n",
-			fNoMonsters, pentToSkip, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
+		int skipIdx = pentToSkip ? ENTINDEX(pentToSkip) : -1;
+		ALERT(at_logged, "[mm-diag] TraceLine in fNoMonsters=%d idx=%d v1=(%.1f %.1f %.1f) v2=(%.1f %.1f %.1f)\n",
+			fNoMonsters, skipIdx, v1[0], v1[1], v1[2], v2[0], v2[1], v2[2]);
 	}
 	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
 		if (_p->status() != PL_RUNNING) continue;
@@ -1761,8 +1764,9 @@ static void mm_TraceLine(const float *v1, const float *v2, int fNoMonsters, edic
 		g_metaGlobals.status = status;
 	}
 	if (diag) {
-		ALERT(at_logged, "[mm-diag] TraceLine out flFraction=%.4f iHitgroup=%d pHit=%p\n",
-			ptr ? ptr->flFraction : -1.0f, ptr ? ptr->iHitgroup : -1, ptr ? ptr->pHit : nullptr);
+		int hitIdx = (ptr && ptr->pHit) ? ENTINDEX(ptr->pHit) : -1;
+		ALERT(at_logged, "[mm-diag] TraceLine out flFraction=%.4f iHitgroup=%d pHitIdx=%d\n",
+			ptr ? ptr->flFraction : -1.0f, ptr ? ptr->iHitgroup : -1, hitIdx);
 	}
 	g_metaGlobals = backup;
 }
