@@ -1715,7 +1715,7 @@ static unsigned int mm_trace_diag = 0;
 static void mm_TraceLine(const float *v1, const float *v2, int fNoMonsters, edict_t *pentToSkip, TraceResult *ptr)
 {
 	const double dx = v2[0] - v1[0], dy = v2[1] - v1[1], dz = v2[2] - v1[2];
-	const bool bulletTrace = (dx * dx + dy * dy + dz * dz) > 7000.0 * 7000.0;
+	const bool bulletTrace = (dx * dx + dy * dy + dz * dz) > 3000.0 * 3000.0;
 	const bool diag = mm_trace_diag < 5000 && fNoMonsters == 0 && bulletTrace;
 	if (diag) mm_trace_diag++;
 	meta_globals_t backup = g_metaGlobals;
