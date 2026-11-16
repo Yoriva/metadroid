@@ -2342,11 +2342,11 @@ static int mm_ShouldCollide(edict_t *pentTouched, edict_t *pentOther)
 {
 	meta_globals_t backup = g_metaGlobals;
 	META_RES mres = MRES_UNSET, status = MRES_UNSET, prev_mres = MRES_UNSET;
-	int dllret{};
-	int override_ret{};
-	int pub_override_ret{};
-	int orig_ret{};
-	int pub_orig_ret{};
+	int dllret{1};
+	int override_ret{1};
+	int pub_override_ret{1};
+	int orig_ret{1};
+	int pub_orig_ret{1};
 	prev_mres = MRES_UNSET;
 	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
 		if (_p->status() != PL_RUNNING) continue;
