@@ -477,6 +477,14 @@ static void mm_SetAbsBox(edict_t *pent)
 		if (_fn) {
 			_fn(pent);
 		}
+		else {
+			pent->v.absmin[0] = pent->v.origin[0] + pent->v.mins[0];
+			pent->v.absmin[1] = pent->v.origin[1] + pent->v.mins[1];
+			pent->v.absmin[2] = pent->v.origin[2] + pent->v.mins[2];
+			pent->v.absmax[0] = pent->v.origin[0] + pent->v.maxs[0];
+			pent->v.absmax[1] = pent->v.origin[1] + pent->v.maxs[1];
+			pent->v.absmax[2] = pent->v.origin[2] + pent->v.maxs[2];
+		}
 	}
 	if (g_plugins) for (auto *_p : *g_plugins->getPlugins()) {
 		if (_p->status() != PL_RUNNING) continue;

@@ -1,4 +1,4 @@
-﻿#include "precompiled.h"
+#include "precompiled.h"
 
 cvar_t g_meta_version = { "metamod_version", APP_VERSION, FCVAR_SERVER, 0, nullptr };
 
@@ -45,10 +45,6 @@ void metamod_startup()
 	char pluginFile[MAX_PATH];
 	char execFile[MAX_PATH];
 
-	Q_snprintf(configFile, sizeof configFile, "%s/%s", g_config->directory(), CONFIG_INI);
-	Q_snprintf(pluginFile, sizeof pluginFile, "%s/%s", g_config->directory(), PLUGINS_INI);
-	Q_snprintf(execFile,   sizeof execFile,   "%s/%s", g_config->directory(), EXEC_CFG);
-
 	META_CONS("   ");
 	META_CONS("   Metamod-r version %s Copyright (c) 2016-2025 ReHLDS Team (rebuild of original Metamod by Will Day and Jussi Kivilinna)", APP_VERSION);
 	META_CONS("   Metamod-r comes with ABSOLUTELY NO WARRANTY; for details type `meta gpl'.");
@@ -65,6 +61,11 @@ void metamod_startup()
 	if (!meta_init_gamedll()) {
 		Sys_Error("Failure to init game DLL; exiting...");
 	}
+
+	Q_snprintf(configFile, sizeof configFile, "%s/%s/%s", g_GameDLL.gamedir, "addons/metamod", CONFIG_INI);
+	Q_snprintf(pluginFile, sizeof pluginFile, "%s/%s/%s", g_GameDLL.gamedir, "addons/metamod", PLUGINS_INI);
+	Q_snprintf(execFile,   sizeof execFile,   "%s/%s/%s", g_GameDLL.gamedir, "addons/metamod", EXEC_CFG);
+	META_CONS("metadroid: configFile='%s' pluginFile='%s'", configFile, pluginFile);
 
 	g_metamod_active = true;
 
@@ -384,14 +385,19 @@ bool get_function_table_old(const char* ifname, int ifvers_mm, table_t*& table, 
 //                	(GiveFnptrsToDll, GetEntityAPI, GetEntityAPI2)
 bool meta_load_gamedll()
 {
+	META_CONS("metadroid: enter meta_load_gamedll: gamedir='%s' name='%s' m_gamedll='%s'", g_GameDLL.gamedir, g_GameDLL.name, g_config->m_gamedll ? g_config->m_gamedll : "(null)");
 	if (!setup_gamedll(&g_GameDLL)) {
+		META_CONS("metadroid: setup_gamedll FAILED for game='%s'", g_GameDLL.name);
 		META_ERROR("dll: Unrecognized game: %s", g_GameDLL.name);
 		// meta_errno should be already set in lookup_game()
 		return false;
 	}
 
+	META_CONS("metadroid: setup_gamedll OK: pathname='%s' desc='%s'", g_GameDLL.pathname, g_GameDLL.desc);
+
 	// open the game DLL
 	if (!g_GameDLL.sys_module.load(g_GameDLL.pathname)) {
+		META_CONS("metadroid: dlopen('%s') FAILED: %s", g_GameDLL.pathname, CSysModule::getloaderror());
 		META_ERROR("dll: Couldn't load game DLL %s: %s", g_GameDLL.pathname, CSysModule::getloaderror());
 		return false;
 	}
@@ -401,6 +407,7 @@ bool meta_load_gamedll()
 	// dynamically loadable at any time, we have to always pass our table,
 	// so that any plugin loaded later can catch what they need to.
 	auto pfn_give_engfuncs = (GIVE_ENGINE_FUNCTIONS_FN)g_GameDLL.sys_module.getsym("GiveFnptrsToDll");
+	META_CONS("metadroid: GiveFnptrsToDll -> %p", pfn_give_engfuncs);
 	if (pfn_give_engfuncs) {
 		pfn_give_engfuncs(&g_meta_engfuncs, gpGlobals);
 		META_DEBUG(3, "dll: Game '%s': Called GiveFnptrsToDll", g_GameDLL.name);
@@ -416,6 +423,7 @@ bool meta_load_gamedll()
 
 	// Look for API2 interface in plugin; preferred over API-1.
 	bool found = get_function_table<int&>("GetEntityAPI2", INTERFACE_VERSION, g_GameDLL.funcs.dllapi_table);
+	META_CONS("metadroid: GetEntityAPI2 lookup found=%d", (int)found);
 
 	// Look for API-1 in plugin, if API2 interface wasn't found.
 	if (!found) {

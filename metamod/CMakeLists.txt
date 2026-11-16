@@ -33,6 +33,7 @@ set(METAMOD_SOURCES
 	"src/mdebug.cpp"
 	"src/meta_rehlds_api.cpp"
 	"src/metamod.cpp"
+	"src/metamod_physics.cpp"
 	"src/mextdll.cpp"
 	"src/mlist.cpp"
 	"src/mplayer.cpp"

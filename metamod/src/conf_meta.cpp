@@ -101,9 +101,11 @@ bool MConfig::load(const char* fn)
 
 	FILE* fp = fopen(loadfile, "r");
 	if (!fp) {
+		META_CONS("metadroid: MConfig::load could not open '%s': %s", loadfile, strerror(errno));
 		META_ERROR("unable to open config file '%s': %s", loadfile, strerror(errno));
 		return false;
 	}
+	META_CONS("metadroid: MConfig::load opened '%s'", loadfile);
 
 	META_DEBUG(2, "Loading from config file: %s", loadfile);
 	for (int ln = 1; !feof(fp) && fgets(line, sizeof line, fp); ln++)
@@ -126,16 +128,21 @@ bool MConfig::load(const char* fn)
 		}
 
 		auto optp = find(optname);
+		META_CONS("metadroid: line %d: optname='%s' optval='%s' found=%d", ln, optname, optval, (int)(optp != nullptr));
 		if (!optp) {
 			META_ERROR("'%s' line %d: unknown option name '%s'", loadfile, ln, optname);
 			continue;
 		}
 
 		if (!set(optp, optval)) {
+			META_CONS("metadroid: line %d: set '%s' FAILED for '%s'", ln, optname, optval);
 			META_ERROR("'%s' line %d: unable to set option '%s' value '%s'", loadfile, ln, optname, optval);
+		} else {
+			META_CONS("metadroid: line %d: set '%s' OK", ln, optname);
 		}
 	}
 
+	META_CONS("metadroid: MConfig::load done: m_gamedll='%s' m_exec_cfg='%s'", m_gamedll ? m_gamedll : "(null)", m_exec_cfg ? m_exec_cfg : "(null)");
 	m_filename = Q_strdup(loadfile);
 	fclose(fp);
 	return true;

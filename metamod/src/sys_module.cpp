@@ -1,4 +1,31 @@
-﻿#include "precompiled.h"
+#include "precompiled.h"
+#include <android/dlext.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+
+static const char *module_dir()
+{
+	static char dir[260];
+	static char cached[260];
+	static int init = -1;
+
+	if (init < 0) {
+		init = 0;
+		Dl_info info;
+		if (dladdr((void *)module_dir, &info) && info.dli_fname) {
+			Q_strlcpy(dir, info.dli_fname);
+			char *slash = strrchr(dir, '/');
+			if (slash) *slash = '\0';
+			else dir[0] = '\0';
+			Q_strlcpy(cached, dir);
+		} else {
+			cached[0] = '\0';
+		}
+	}
+	return cached;
+}
 
 const module_handle_t CSysModule::INVALID_HANDLE = (module_handle_t)0;
 
@@ -12,8 +39,8 @@ bool CSysModule::is_opened() const
 }
 
 #ifdef _WIN32
-
 module_handle_t CSysModule::load(void *addr)
+
 {
 	MEMORY_BASIC_INFORMATION mem;
 	if (!VirtualQuery(addr, &mem, sizeof(mem)))
@@ -149,6 +176,36 @@ module_handle_t CSysModule::load(const char *filepath)
 #define RTLD_NOLOAD 0
 #endif
 		m_handle = dlopen(filepath, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
+#ifdef __ANDROID__
+		if (!m_handle) {
+			const char *base = strrchr(filepath, '/');
+			base = base ? base + 1 : filepath;
+			const char *mdir = module_dir();
+			if (mdir && *mdir) {
+				char cand[512];
+				Q_snprintf(cand, sizeof cand, "%s/%s", mdir, base);
+				m_handle = dlopen(cand, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
+				if (m_handle) META_CONS("metadroid: dlopen('%s') via module dir OK", cand);
+			}
+			if (!m_handle) {
+				META_CONS("metadroid: dlopen('%s/%s') via module dir FAILED: %s", mdir, base, dlerror());
+			}
+		}
+		if (!m_handle) {
+			int fd = open(filepath, O_RDONLY | O_CLOEXEC);
+			if (fd >= 0) {
+				android_dlextinfo info;
+				memset(&info, 0, sizeof info);
+				info.flags = ANDROID_DLEXT_USE_LIBRARY_FD;
+				info.library_fd = fd;
+				m_handle = android_dlopen_ext(filepath, RTLD_NOW | RTLD_LOCAL, &info);
+				META_CONS("metadroid: android_dlopen_ext FD=%d handle=%p %s", fd, m_handle, m_handle ? "OK" : dlerror());
+				close(fd);
+			} else {
+				META_CONS("metadroid: open('%s') FAILED: %s", filepath, strerror(errno));
+			}
+		}
+#endif
 		if (m_handle) m_free = true;
 
 		char buf[1024], dummy[1024], path[260];
